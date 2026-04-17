@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble 泡泡截图生成器</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 40%, #24243e 100%);
+    min-height: 100vh;
+    color: #e0e0e0;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+  .glass-panel {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+  }
+
+  .phone-frame {
+    width: 375px;
+    min-height: 720px;
+    max-height: 780px;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.1),
+      0 0 0 6px rgba(0,0,0,0.3),
+      0 25px 60px rgba(0,0,0,0.5),
+      0 0 80px rgba(139,92,246,0.1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bubble-artist {
+    background: #fff;
+    color: #1a1a1a;
+    border-radius: 0 18px 18px 18px;
+    padding: 14px 16px;
+    max-width: 260px;
+    font-size: 15px;
+    line-height: 1.55;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    position: relative;
+    word-break: break-word;
+  }
+  .bubble-artist-continued {
+    border-radius: 12px 18px 18px 12px;
+  }
+
+  .bubble-user {
+    background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+    color: #1a1a1a;
+    border-radius: 18px 0 18px 18px;
+    padding: 14px 16px;
+    max-width: 240px;
+    font-size: 15px;
+    line-height: 1.55;
+    box-shadow: 0 1px 4px rgba(139,92,246,0.15);
+    word-break: break-word;
+  }
+
+  .translate-divider {
+    border: none;
+    border-top: 1.5px dashed #d1d5db;
+    margin: 8px 0;
+  }
+  .translate-text {
+    color: #14b8a6;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .artist-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #22c55e;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .date-separator {
+    text-align: center;
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    padding: 12px 0;
+    font-weight: 500;
+  }
+
+  .config-input {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 14px;
+    width: 100%;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .config-input:focus {
+    border-color: rgba(139,92,246,0.6);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
+  }
+  .config-input::placeholder { color: rgba(255,255,255,0.3); }
+
+  .config-select {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+    cursor: pointer;
+  }
+  .config-select option { background: #1a1a3e; color: #fff; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(139,92,246,0.4); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+  .btn-danger {
+    background: rgba(239,68,68,0.15);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+  .preset-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: center;
+  }
+  .preset-btn:hover {
+    background: rgba(139,92,246,0.15);
+    border-color: rgba(139,92,246,0.3);
+    transform: translateY(-2px);
+  }
+
+  .watermark-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .watermark-text {
+    color: rgba(128,128,128,0.08);
+    font-size: 16px;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: rotate(-35deg);
+    letter-spacing: 2px;
+  }
+
+  .msg-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+  }
+  .msg-item:hover { border-color: rgba(255,255,255,0.12); }
+
+  .translate-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.05);
+    font-size: 11px;
+    color: #888;
+    cursor: default;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useCallback, useEffect } = React;
+
+// ==================== PRESETS ====================
+const PRESETS = [
+  {
+    name: "준머니 (EXO)",
+    nickname: "준머니",
+    themeColor: "#c4b5fd",
+    bgColor: "#f5f0ff",
+    badgeEmoji: "💜",
+    avatar: null,
+  },
+  {
+    name: "moya (NEXZ)",
+    nickname: "moya",
+    themeColor: "#fca5a5",
+    bgColor: "#fff5f5",
+    badgeEmoji: "❤️",
+    avatar: null,
+  },
+  {
+    name: "봉구 🍑",
+    nickname: "봉구 🍑",
+    themeColor: "#86efac",
+    bgColor: "#f0fdf4",
+    badgeEmoji: "💚",
+    avatar: null,
+  },
+  {
+    name: "으노야 ❤️",
+    nickname: "으노야",
+    themeColor: "#fda4af",
+    bgColor: "#fff1f2",
+    badgeEmoji: "❤️",
+    avatar: null,
+  },
+];
+
+// ==================== DEFAULT MESSAGES ====================
+const DEFAULT_MESSAGES = [
+  { id: 1, type: 'date', text: '2026年3月16日 星期一' },
+  {
+    id: 2, type: 'artist', text: '안녕하세요 여러분! 많이 기다렸죠? 드디어 버블을 통해 소통할 수 있게되었네요. 😊',
+    translation: '大家好！等了很久吧？终于可以通过Bubble和大家交流了。😊',
+    showTranslate: true, showTranslateIcon: true, time: '19:00'
+  },
+  {
+    id: 3, type: 'artist', text: '오늘 날씨가 너무 좋아서 기분이 좋아요~',
+    translation: '今天天气太好了心情也很好~',
+    showTranslate: true, showTranslateIcon: true, time: '19:00'
+  },
+  {
+    id: 4, type: 'artist', text: '다들 뭐 하고 있어요? 😄',
+    translation: '大家都在干什么呢？😄',
+    showTranslate: true, showTranslateIcon: true, time: '19:01'
+  },
+  { id: 5, type: 'user', text: '欧巴！终于等到你了！！❤️', time: '19:02' },
+  { id: 6, type: 'user', text: '今天也要开心哦 😊', time: '19:03' },
+];
+
+let nextId = 100;
+const genId = () => nextId++;
+
+// ==================== PHONE PREVIEW ====================
+function PhonePreview({ config, messages }) {
+  const { nickname, avatar, bgColor, themeColor, badgeEmoji, bgImage, bubbleCount } = config;
+
+  // Group consecutive artist messages
+  const processedMessages = messages.map((msg, idx) => {
+    if (msg.type !== 'artist') return { ...msg, showAvatar: false };
+    const prev = messages[idx - 1];
+    const isFirst = !prev || prev.type !== 'artist';
+    return { ...msg, showAvatar: isFirst };
+  });
+
+  return (
+    <div className="phone-frame" style={{ background: bgImage ? `url(${bgImage}) center/cover` : bgColor || '#f8f8fa' }}>
+      {/* Watermark overlay */}
+      <div className="watermark-overlay">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="watermark-text" style={{
+            position: 'absolute',
+            top: `${15 + i * 22}%`,
+            left: '50%',
+            transform: `translate(-50%, -50%) rotate(-35deg)`,
+          }}>
+            2b娱乐公司出品 月组
+          </div>
+        ))}
+      </div>
+
+      {/* Header */}
+      <div style={{
+        background: '#fff',
+        padding: '12px 16px 10px',
+        borderBottom: '1px solid #f0f0f0',
+        zIndex: 10,
+        flexShrink: 0,
+      }}>
+        {/* Status bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#333', fontWeight: 600, marginBottom: 10, padding: '0 2px' }}>
+          <span>19:52</span>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <i className="fas fa-signal" style={{ fontSize: 11 }}></i>
+            <i className="fas fa-wifi" style={{ fontSize: 11 }}></i>
+            <i className="fas fa-battery-full" style={{ fontSize: 13 }}></i>
+          </div>
+        </div>
+
+        {/* Nav bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <i className="fas fa-chevron-left" style={{ fontSize: 18, color: '#333', cursor: 'pointer' }}></i>
+          <span style={{
+            fontFamily: "'Noto Sans KR', sans-serif",
+            fontSize: 20,
+            fontWeight: 900,
+            color: '#111',
+            letterSpacing: '-0.3px',
+          }}>{nickname || 'Artist'}</span>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+            <i className="fas fa-search" style={{ fontSize: 16, color: '#333' }}></i>
+            <i className="fas fa-ellipsis-vertical" style={{ fontSize: 16, color: '#333' }}></i>
+          </div>
+        </div>
+
+        {/* Bubble badge */}
+        <div style={{ textAlign: 'center', fontSize: 14, color: '#555', fontWeight: 500 }}>
+          <span style={{ fontWeight: 700, color: '#333', letterSpacing: '-0.2px' }}>bubble</span>
+          {' '}<span>{badgeEmoji || '💜'}</span>
+          <span style={{ color: '#999', marginLeft: 4 }}>+ {bubbleCount || 2}</span>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '8px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}>
+        {processedMessages.map((msg) => {
+          if (msg.type === 'date') {
+            return (
+              <div key={msg.id} className="date-separator" style={{ color: bgImage ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.35)' }}>
+                — {msg.text} —
+              </div>
+            );
+          }
+
+          if (msg.type === 'artist') {
+            return (
+              <div key={msg.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: msg.showAvatar ? 2 : 2, marginTop: msg.showAvatar ? 10 : 0, marginLeft: msg.showAvatar ? 0 : 48 }}>
+                {msg.showAvatar && (
+                  <div style={{ flexShrink: 0 }}>
+                    {avatar ? (
+                      <img src={avatar} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e9e3ff' }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #c4b5fd, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, fontWeight: 700, border: '2px solid #e9e3ff' }}>
+                        {(nickname || 'A').charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div style={{ flex: 1, maxWidth: 260 }}>
+                  {msg.showAvatar && (
+                    <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="artist-badge">
+                        ARTIST <i className="fas fa-pen" style={{ fontSize: 8 }}></i>
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: bgImage ? 'rgba(255,255,255,0.85)' : '#555' }}>{nickname}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+                    <div className={`bubble-artist ${!msg.showAvatar ? 'bubble-artist-continued' : ''}`}>
+                      <div style={{ fontFamily: "'Noto Sans KR', 'Noto Sans SC', sans-serif" }}>{msg.text}</div>
+                      {msg.showTranslate && msg.translation && (
+                        <>
+                          <hr className="translate-divider" />
+                          <div className="translate-text" style={{ fontFamily: "'Noto Sans SC', sans-serif" }}>{msg.translation}</div>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                      {msg.showTranslateIcon && (
+                        <div className="translate-icon-btn" title="翻译">
+                          <span style={{ fontSize: 10, fontWeight: 700 }}>A</span>
+                        </div>
+                      )}
+                      <span style={{ fontSize: 11, color: bgImage ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>{msg.time}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (msg.type === 'artist-image') {
+            return (
+              <div key={msg.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 2, marginTop: msg.showAvatar ? 10 : 0, marginLeft: msg.showAvatar ? 0 : 48 }}>
+                {msg.showAvatar && (
+                  <div style={{ flexShrink: 0 }}>
+                    {avatar ? (
+                      <img src={avatar} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e9e3ff' }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #c4b5fd, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, fontWeight: 700, border: '2px solid #e9e3ff' }}>
+                        {(nickname || 'A').charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div style={{ flex: 1, maxWidth: 260 }}>
+                  {msg.showAvatar && (
+                    <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="artist-badge">ARTIST <i className="fas fa-pen" style={{ fontSize: 8 }}></i></span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: bgImage ? 'rgba(255,255,255,0.85)' : '#555' }}>{nickname}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+                    <img src={msg.imageSrc} style={{ maxWidth: 200, borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} />
+                    <span style={{ fontSize: 11, color: bgImage ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>{msg.time}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (msg.type === 'user') {
+            return (
+              <div key={msg.id} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 6, marginTop: 4, marginBottom: 2 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                  <span style={{ fontSize: 11, color: bgImage ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)' }}>{msg.time}</span>
+                </div>
+                <div className="bubble-user" style={{
+                  background: `linear-gradient(135deg, ${themeColor || '#c4b5fd'}, ${adjustColor(themeColor || '#c4b5fd', -20)})`,
+                }}>
+                  <span style={{ fontFamily: "'Noto Sans SC', 'Noto Sans KR', sans-serif" }}>{msg.text}</span>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })}
+        <div style={{ height: 8 }}></div>
+      </div>
+
+      {/* Bottom input bar */}
+      <div style={{
+        background: '#fff',
+        padding: '10px 14px 26px',
+        borderTop: '1px solid #f0f0f0',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexShrink: 0,
+        zIndex: 10,
+      }}>
+        <div style={{
+          flex: 1,
+          background: '#f3f4f6',
+          borderRadius: 22,
+          padding: '10px 16px',
+          fontSize: 14,
+          color: '#999',
+        }}>|</div>
+        <i className="far fa-smile" style={{ fontSize: 22, color: '#aaa' }}></i>
+        <i className="far fa-paper-plane" style={{ fontSize: 20, color: '#ccc' }}></i>
+      </div>
+
+      {/* Home indicator */}
+      <div style={{
+        position: 'absolute',
+        bottom: 6,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 134,
+        height: 5,
+        background: '#000',
+        borderRadius: 3,
+        opacity: 0.2,
+        zIndex: 20,
+      }}></div>
+    </div>
+  );
+}
+
+// ==================== HELPERS ====================
+function adjustColor(hex, amount) {
+  let c = hex.replace('#','');
+  if (c.length === 3) c = c.split('').map(x => x+x).join('');
+  let r = parseInt(c.substring(0,2), 16) + amount;
+  let g = parseInt(c.substring(2,4), 16) + amount;
+  let b = parseInt(c.substring(4,6), 16) + amount;
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ==================== MESSAGE EDITOR ====================
+function MessageEditor({ msg, onUpdate, onDelete, onMoveUp, onMoveDown }) {
+  if (msg.type === 'date') {
+    return (
+      <div className="msg-item fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: '#8b5cf6', fontWeight: 600 }}><i className="fas fa-calendar"></i> 日期分割线</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={onMoveUp} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-up"></i></button>
+            <button onClick={onMoveDown} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-down"></i></button>
+            <button onClick={onDelete} className="btn-danger"><i className="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <input className="config-input" value={msg.text} onChange={(e) => onUpdate({ ...msg, text: e.target.value })} placeholder="例如: 2026年3月16日 星期一" />
+      </div>
+    );
+  }
+
+  if (msg.type === 'artist') {
+    return (
+      <div className="msg-item fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}><i className="fas fa-star"></i> 爱豆消息</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={onMoveUp} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-up"></i></button>
+            <button onClick={onMoveDown} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-down"></i></button>
+            <button onClick={onDelete} className="btn-danger"><i className="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <textarea className="config-input" rows={2} value={msg.text} onChange={(e) => onUpdate({ ...msg, text: e.target.value })} placeholder="韩文/原文内容" style={{ marginBottom: 6, resize: 'vertical' }} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#aaa', cursor: 'pointer' }}>
+            <input type="checkbox" checked={msg.showTranslate || false} onChange={(e) => onUpdate({ ...msg, showTranslate: e.target.checked })} />
+            显示翻译
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#aaa', cursor: 'pointer' }}>
+            <input type="checkbox" checked={msg.showTranslateIcon || false} onChange={(e) => onUpdate({ ...msg, showTranslateIcon: e.target.checked })} />
+            翻译图标 <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 4, padding: '1px 4px' }}>Ⓐ</span>
+          </label>
+        </div>
+        {msg.showTranslate && (
+          <textarea className="config-input" rows={2} value={msg.translation || ''} onChange={(e) => onUpdate({ ...msg, translation: e.target.value })} placeholder="中文翻译内容" style={{ marginBottom: 6, resize: 'vertical', borderColor: 'rgba(20,184,166,0.3)' }} />
+        )}
+        <input className="config-input" value={msg.time || ''} onChange={(e) => onUpdate({ ...msg, time: e.target.value })} placeholder="时间戳 (如 19:00)" style={{ maxWidth: 120 }} />
+      </div>
+    );
+  }
+
+  if (msg.type === 'artist-image') {
+    return (
+      <div className="msg-item fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600 }}><i className="fas fa-image"></i> 爱豆图片</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={onMoveUp} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-up"></i></button>
+            <button onClick={onMoveDown} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-down"></i></button>
+            <button onClick={onDelete} className="btn-danger"><i className="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <input type="file" accept="image/*" onChange={async (e) => {
+          if (e.target.files[0]) {
+            const base64 = await fileToBase64(e.target.files[0]);
+            onUpdate({ ...msg, imageSrc: base64 });
+          }
+        }} style={{ marginBottom: 6, fontSize: 12, color: '#aaa' }} />
+        {msg.imageSrc && <img src={msg.imageSrc} style={{ maxWidth: 100, borderRadius: 8, marginBottom: 6 }} />}
+        <input className="config-input" value={msg.time || ''} onChange={(e) => onUpdate({ ...msg, time: e.target.value })} placeholder="时间戳" style={{ maxWidth: 120 }} />
+      </div>
+    );
+  }
+
+  if (msg.type === 'user') {
+    return (
+      <div className="msg-item fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600 }}><i className="fas fa-user"></i> 我的消息</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={onMoveUp} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-up"></i></button>
+            <button onClick={onMoveDown} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}><i className="fas fa-arrow-down"></i></button>
+            <button onClick={onDelete} className="btn-danger"><i className="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <textarea className="config-input" rows={2} value={msg.text} onChange={(e) => onUpdate({ ...msg, text: e.target.value })} placeholder="你的回复消息" style={{ marginBottom: 6, resize: 'vertical' }} />
+        <input className="config-input" value={msg.time || ''} onChange={(e) => onUpdate({ ...msg, time: e.target.value })} placeholder="时间戳 (如 19:03)" style={{ maxWidth: 120 }} />
+      </div>
+    );
+  }
+  return null;
+}
+
+// ==================== MAIN APP ====================
+function App() {
+  const [config, setConfig] = useState({
+    nickname: '준머니',
+    avatar: null,
+    bgColor: '#f8f8fa',
+    bgImage: null,
+    themeColor: '#c4b5fd',
+    badgeEmoji: '💜',
+    bubbleCount: 2,
+  });
+  const [messages, setMessages] = useState(DEFAULT_MESSAGES);
+  const phoneRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const bgFileInputRef = useRef(null);
+  const importInputRef = useRef(null);
+
+  // Avatar upload
+  const handleAvatarUpload = async (e) => {
+    if (e.target.files[0]) {
+      const base64 = await fileToBase64(e.target.files[0]);
+      setConfig(prev => ({ ...prev, avatar: base64 }));
+    }
+  };
+
+  // BG image upload
+  const handleBgUpload = async (e) => {
+    if (e.target.files[0]) {
+      const base64 = await fileToBase64(e.target.files[0]);
+      setConfig(prev => ({ ...prev, bgImage: base64 }));
+    }
+  };
+
+  // Add message
+  const addMessage = (type) => {
+    const id = genId();
+    let newMsg;
+    switch(type) {
+      case 'date':
+        newMsg = { id, type: 'date', text: '2026年4月18日 星期五' };
+        break;
+      case 'artist':
+        newMsg = { id, type: 'artist', text: '', translation: '', showTranslate: true, showTranslateIcon: true, time: '19:00' };
+        break;
+      case 'artist-image':
+        newMsg = { id, type: 'artist-image', imageSrc: '', time: '19:00' };
+        break;
+      case 'user':
+        newMsg = { id, type: 'user', text: '', time: '19:00' };
+        break;
+      default: return;
+    }
+    setMessages(prev => [...prev, newMsg]);
+  };
+
+  // Update message
+  const updateMessage = (id, updated) => {
+    setMessages(prev => prev.map(m => m.id === id ? updated : m));
+  };
+
+  // Delete message
+  const deleteMessage = (id) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+  };
+
+  // Move message
+  const moveMessage = (id, dir) => {
+    setMessages(prev => {
+      const idx = prev.findIndex(m => m.id === id);
+      if (idx < 0) return prev;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
+
+  // Apply preset
+  const applyPreset = (preset) => {
+    setConfig(prev => ({
+      ...prev,
+      nickname: preset.nickname,
+      themeColor: preset.themeColor,
+      bgColor: preset.bgColor,
+      badgeEmoji: preset.badgeEmoji,
+      avatar: preset.avatar || prev.avatar,
+    }));
+  };
+
+  // Export JSON
+  const exportJSON = () => {
+    const data = { config: { ...config }, messages };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bubble-backup-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import JSON
+  const importJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.config) setConfig(data.config);
+        if (data.messages) setMessages(data.messages);
+        alert('✅ 存档载入成功！');
+      } catch(err) {
+        alert('❌ 文件格式错误，请选择正确的JSON存档文件。');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Screenshot
+  const takeScreenshot = () => {
+    const el = phoneRef.current;
+    if (!el) return;
+    html2canvas(el, {
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+    }).then(canvas => {
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `bubble-screenshot-${Date.now()}.png`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    }).catch(err => {
+      alert('截图失败: ' + err.message);
+    });
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', padding: '24px' }}>
+      {/* Title */}
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, background: 'linear-gradient(135deg, #c4b5fd, #8b5cf6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 6 }}>
+          ✨ Bubble 泡泡截图生成器
+        </h1>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>高保真模仿 · 一键生成 · 仅供娱乐</p>
+      </div>
+
+      {/* Main layout */}
+      <div style={{ display: 'flex', gap: 28, maxWidth: 1200, margin: '0 auto', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+        {/* LEFT: Config Panel */}
+        <div className="glass-panel" style={{ width: 420, padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+
+          {/* Presets */}
+          <div style={{ marginBottom: 20 }}>
+            <div className="section-title"><i className="fas fa-palette"></i> 爱豆模板 (一键换肤)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {PRESETS.map((p, i) => (
+                <div key={i} className="preset-btn" onClick={() => applyPreset(p)}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: `linear-gradient(135deg, ${p.themeColor}, ${adjustColor(p.themeColor, -30)})`, margin: '0 auto 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
+                    {p.badgeEmoji}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#ccc', fontWeight: 500, lineHeight: 1.3 }}>{p.name}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Basic config */}
+          <div style={{ marginBottom: 20 }}>
+            <div className="section-title"><i className="fas fa-cog"></i> 基础设置</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>爱豆昵称</label>
+                <input className="config-input" value={config.nickname} onChange={(e) => setConfig(prev => ({...prev, nickname: e.target.value}))} placeholder="输入爱豆名字" />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>头像上传</label>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button className="btn-secondary" onClick={() => fileInputRef.current.click()} style={{ fontSize: 13 }}>
+                    <i className="fas fa-upload"></i> 选择头像
+                  </button>
+                  {config.avatar && <img src={config.avatar} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />}
+                  {config.avatar && <button className="btn-danger" onClick={() => setConfig(prev => ({...prev, avatar: null}))}>移除</button>}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>气泡主题色</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={config.themeColor} onChange={(e) => setConfig(prev => ({...prev, themeColor: e.target.value}))} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', background: 'transparent' }} />
+                    <span style={{ fontSize: 12, color: '#888' }}>{config.themeColor}</span>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>聊天背景色</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={config.bgColor} onChange={(e) => setConfig(prev => ({...prev, bgColor: e.target.value}))} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', background: 'transparent' }} />
+                    <span style={{ fontSize: 12, color: '#888' }}>{config.bgColor}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>爱心/徽章 (Emoji)</label>
+                  <input className="config-input" value={config.badgeEmoji} onChange={(e) => setConfig(prev => ({...prev, badgeEmoji: e.target.value}))} placeholder="💜" style={{ maxWidth: 100 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>Bubble 计数</label>
+                  <input className="config-input" type="number" min="0" value={config.bubbleCount} onChange={(e) => setConfig(prev => ({...prev, bubbleCount: parseInt(e.target.value) || 0}))} style={{ maxWidth: 100 }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: '#999', marginBottom: 4, display: 'block' }}>背景图片 (可选)</label>
+                <input ref={bgFileInputRef} type="file" accept="image/*" onChange={handleBgUpload} style={{ display: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button className="btn-secondary" onClick={() => bgFileInputRef.current.click()} style={{ fontSize: 13 }}>
+                    <i className="fas fa-image"></i> 选择背景图
+                  </button>
+                  {config.bgImage && <button className="btn-danger" onClick={() => setConfig(prev => ({...prev, bgImage: null}))}>移除</button>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Messages config */}
+          <div style={{ marginBottom: 20 }}>
+            <div className="section-title"><i className="fas fa-comments"></i> 消息列表</div>
+
+            {/* Add buttons */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              <button className="btn-primary" onClick={() => addMessage('date')} style={{ fontSize: 12 }}>
+                <i className="fas fa-calendar-plus"></i> 日期线
+              </button>
+              <button className="btn-primary" onClick={() => addMessage('artist')} style={{ fontSize: 12, background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                <i className="fas fa-star"></i> 爱豆消息
+              </button>
+              <button className="btn-primary" onClick={() => addMessage('artist-image')} style={{ fontSize: 12, background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                <i className="fas fa-image"></i> 爱豆图片
+              </button>
+              <button className="btn-primary" onClick={() => addMessage('user')} style={{ fontSize: 12, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)' }}>
+                <i className="fas fa-user"></i> 我的消息
+              </button>
+            </div>
+
+            {/* Message list */}
+            <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+              {messages.map((msg) => (
+                <MessageEditor
+                  key={msg.id}
+                  msg={msg}
+                  onUpdate={(updated) => updateMessage(msg.id, updated)}
+                  onDelete={() => deleteMessage(msg.id)}
+                  onMoveUp={() => moveMessage(msg.id, -1)}
+                  onMoveDown={() => moveMessage(msg.id, 1)}
+                />
+              ))}
+              {messages.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', padding: 30, fontSize: 14 }}>
+                  <i className="fas fa-inbox" style={{ fontSize: 28, marginBottom: 8, display: 'block' }}></i>
+                  点击上方按钮添加消息
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Import / Export */}
+          <div style={{ marginBottom: 16 }}>
+            <div className="section-title"><i className="fas fa-database"></i> 存档管理</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-secondary" onClick={exportJSON} style={{ flex: 1 }}>
+                <i className="fas fa-download"></i> 导出存档
+              </button>
+              <input ref={importInputRef} type="file" accept=".json" onChange={importJSON} style={{ display: 'none' }} />
+              <button className="btn-secondary" onClick={() => importInputRef.current.click()} style={{ flex: 1 }}>
+                <i className="fas fa-upload"></i> 载入存档
+              </button>
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 12 }}>
+            2b娱乐公司出品 月组
+          </div>
+        </div>
+
+        {/* RIGHT: Phone Preview + Screenshot Button */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+          <div ref={phoneRef}>
+            <PhonePreview config={config} messages={messages} />
+          </div>
+
+          <button className="btn-primary" onClick={takeScreenshot} style={{
+            padding: '14px 32px',
+            fontSize: 16,
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+            boxShadow: '0 8px 30px rgba(139,92,246,0.3)',
+          }}>
+            <i className="fas fa-camera"></i> 📷 一键生成高清截图
+          </button>
+
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', maxWidth: 300 }}>
+            提示：截图将以 3 倍分辨率导出，确保在社交平台分享时清晰锐利。图片底部将包含水印声明。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ==================== RENDER ====================
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
